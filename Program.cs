@@ -5,6 +5,10 @@ using System.Security.Cryptography;
 
 namespace mathgen
 {
+    public static class Util
+    {
+        public static readonly char[] Letters = { 'x', 'y', 'z', 'w', 'i', 'j', 'k', 'l' };
+    }
     public class Scalar
     {
         public enum Type
@@ -84,15 +88,13 @@ namespace mathgen
                 str += $"\t{Name}(";
                 for (int i = 0; i < width; i++)
                 {
-                    char[] letters = { 'x', 'y', 'z', 'w' };
-                    str += $"{type.Name} _{letters[i]}";
+                    str += $"{type.Name} _{Util.Letters[i]}";
                     str += (i != width - 1) ? ", " : "";
                 }
                 str += ") : ";
                 for (int i = 0; i < width; i++)
                 {
-                    char[] letters = { 'x', 'y', 'z', 'w' };
-                    str += $"{letters[i]}(_{letters[i]})";
+                    str += $"{Util.Letters[i]}(_{Util.Letters[i]})";
                     str += (i != width - 1) ? ", " : "";
                 }
                 str += "{}\n";
@@ -106,8 +108,7 @@ namespace mathgen
             str += $" {{ return {Name}(";
             for (int i = 0; i < width; i++)
             {
-                char[] letters = { 'x', 'y', 'z', 'w' };
-                str += $"{op}a.{letters[i]}";
+                str += $"{op}a.{Util.Letters[i]}";
                 str += (i != width - 1) ? ", " : "";
             }
             str += "); }";
@@ -117,12 +118,11 @@ namespace mathgen
         public string Operator2s(string op)
         {
             string str = "";
-            str += $"\tfriend {Name} operator {op} (const {Name}& a, const {type.Name}& b)";
+            str += $"\tfriend {Name} operator {op} (const {Name}& a, {type.Name} b)";
             str += $" {{ return {Name}(";
             for (int i = 0; i < width; i++)
             {
-                char[] letters = { 'x', 'y', 'z', 'w' };
-                str += $"a.{letters[i]} {op} b";
+                str += $"a.{Util.Letters[i]} {op} b";
                 str += (i != width - 1) ? ", " : "";
             }
             str += "); }";
@@ -137,8 +137,7 @@ namespace mathgen
             str += $" {{ return {Name}(";
             for (int i = 0; i < width; i++)
             {
-                char[] letters = { 'x', 'y', 'z', 'w' };
-                str += $"a.{letters[i]} {op} b.{letters[i]}";
+                str += $"a.{Util.Letters[i]} {op} b.{Util.Letters[i]}";
                 str += (i != width - 1) ? ", " : "";
             }
             str += "); }";
@@ -148,12 +147,11 @@ namespace mathgen
         public string PerComp(string name, string func)
         {
             string str = "";
-            str += $"\tfriend {Name} {name} (const {Name}& a, const {Name}& b)";
+            str += $"\tfriend {Name} {name}(const {Name}& a, const {Name}& b)";
             str += $" {{ return {Name}(";
             for (int i = 0; i < width; i++)
             {
-                char[] letters = { 'x', 'y', 'z', 'w' };
-                str += $"{func}(a.{letters[i]}, b.{letters[i]})";
+                str += $"{func}(a.{Util.Letters[i]}, b.{Util.Letters[i]})";
                 str += (i != width - 1) ? ", " : "";
             }
             str += "); }";
@@ -161,29 +159,43 @@ namespace mathgen
             return str;
         }
         public string PerComp(string name) { return PerComp(name, name); }
-        public string Functions()
+        public string Functions
         {
-            string str = "";
-            if (type.type == Scalar.Type.Float)
-                str += FloatFunctions();
+            get
+            {
+                string str = "";
+                if (type.type == Scalar.Type.Float)
+                    str += FloatFunctions();
 
-            str += PerComp("min", "std::min");
-            str += PerComp("max", "std::max");
+                str += PerComp("min", "std::min");
+                str += PerComp("max", "std::max");
 
-            return str;
+                return str;
+            }
         }
-        public string Operators()
+        public string Operators
+        {
+            get
+            {
+                string str = "";
+                str += Operator1("-");
+                str += Operator2s("+");
+                str += Operator2("+");
+                str += Operator2s("-");
+                str += Operator2("-");
+                str += Operator2s("*");
+                str += Operator2("*");
+                str += Operator2s("/");
+                str += Operator2("/");
+                str += IndexOperator();
+                return str;
+            }
+        }
+        public string IndexOperator()
         {
             string str = "";
-            str += Operator1("-");
-            str += Operator2s("+");
-            str += Operator2("+");
-            str += Operator2s("-");
-            str += Operator2("-");
-            str += Operator2s("*");
-            str += Operator2("*");
-            str += Operator2s("/");
-            str += Operator2("/");
+            str += $"\tfriend {type.Name} operator [] (i32 i) {{ return c[i]; }}\n";
+            str += $"\tfriend {type.Name}& operator [] (i32 i) {{ return c[i]; }}\n";
             return str;
         }
         public string MinFunction()
@@ -210,8 +222,7 @@ namespace mathgen
             str += $"return ";
             for (int i = 0; i < width; i++)
             {
-                char[] letters = { 'x', 'y', 'z', 'w' };
-                str += $"a.{letters[i]} * b.{letters[i]}";
+                str += $"a.{Util.Letters[i]} * b.{Util.Letters[i]}";
                 str += (i != width - 1) ? " + " : "";
             }
             str += "; }\n";
@@ -241,17 +252,22 @@ namespace mathgen
             get
             {
                 string str = $"export struct {Name}\n{{\n";
-                str += $"\t{type.Name} ";
+                str += "\tunion\n\t{\n";
+                str += $"\t\t{type.Name} c[{width}];\n";
+                str += "\t\tstruct\n\t\t{\n";
+
+                str += $"\t\t\t{type.Name} ";
                 for (int i = 0; i < width; i++)
                 {
-                    char[] letters = { 'x', 'y', 'z', 'w' };
-                    str += $"{letters[i]}";
+                    str += $"{Util.Letters[i]}";
                     str += (i != width - 1) ? ", " : ";\n";
                 }
+                str += "\t\t};\n";
+                str += "\t};\n";
 
                 str += Ctors;
-                str += Operators();
-                str += Functions();
+                str += Operators;
+                str += Functions;
 
                 str += "};\n";
 
@@ -293,6 +309,7 @@ namespace mathgen
                 vectors.Add(new Vector { type = s, width = 2 });
                 vectors.Add(new Vector { type = s, width = 3 });
                 vectors.Add(new Vector { type = s, width = 4 });
+                vectors.Add(new Vector { type = s, width = 8 });
             }
 
             string code = "";
