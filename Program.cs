@@ -146,7 +146,7 @@ namespace mathgen
 			str += $"\t{Name} operator {op}= (const {Name}& o) {{ *this = *this {op} o; return *this; }}\n";
 			return str;
 		}
-		public string PerComp(string name, string func)
+		public string PerComp2(string name, string func)
 		{
 			string str = "";
 			str += $"\tfriend {Name} {name}(const {Name}& a, const {Name}& b)";
@@ -160,7 +160,7 @@ namespace mathgen
 			str += "\n";
 			return str;
 		}
-		public string PerComp(string name) { return PerComp(name, name); }
+		public string PerComp2(string name) { return PerComp2(name, name); }
 		public string Functions
 		{
 			get
@@ -169,8 +169,8 @@ namespace mathgen
 				if (type.type == Scalar.Type.Float)
 					str += FloatFunctions();
 
-				str += PerComp("min", "std::min");
-				str += PerComp("max", "std::max");
+				str += PerComp2("min", "std::min");
+				str += PerComp2("max", "std::max");
 
 				return str;
 			}
@@ -206,7 +206,10 @@ namespace mathgen
 			string str = "";
 			str += DotFunction();
 			if (type.type == Scalar.Type.Float)
+			{
 				str += LengthFunction();
+				str += NormalizeFunction();
+			}
 
 			if (width == 3)
 				str += CrossFunction();
@@ -233,6 +236,13 @@ namespace mathgen
 			string str = "";
 			str += $"\tfriend {type.Name} length(const {Name}& a) {{ ";
 			str += $"return ({type.Name})sqrt(dot(a, a)); }}\n";
+			return str;
+		}
+		public string NormalizeFunction()
+		{
+			string str = "";
+			str += $"\tfriend {Name} normalize(const {Name}& a) {{ ";
+			str += $"return a / length(a); }}\n";
 			return str;
 		}
 		public string CrossFunction()
@@ -388,6 +398,7 @@ namespace mathgen
 				}
 				str += "); }";
 				str += "\n";
+				str += $"\t{Name} operator *= (const {Name}& o) {{ *this = *this * o; return *this; }}\n";
 				return str;
 			}
 		}
@@ -484,6 +495,100 @@ namespace mathgen
 				return str;
 			}
 		}
+		public string TransposeFunction
+		{
+			get
+			{
+				int size = Math.Min(width, height);
+				string str = "";
+				str += $"\tstatic {Name} transpose(const {Name}& t) {{ return {Name}(";
+				for (int y = 0, i = 0; y < height; y++)
+				{
+					for (int x = 0; x < width; x++, i++)
+					{
+						if (x < size && y < size)
+						{
+							str += $"t[{x}][{y}]";
+						}
+						else
+							str += x == y ? "1" : "0";
+
+						str += (i != (width * height) - 1) ? ", " : "";
+					}
+				}
+				str += $"); }}\n";
+				return str;
+			}
+		}
+		public string RotateFunctions
+		{
+			get
+			{
+				string str = "";
+				str += $"\tstatic {Name} rotateX(float a) {{ return {Name}(";
+				for (int y = 0, i = 0; y < height; y++)
+				{
+					for (int x = 0; x < width; x++, i++)
+					{
+						if (y == 1 && x == 1)
+							str += "cosf(a)";
+						else if (y == 2 && x == 1)
+							str += "sinf(a)";
+						else if (y == 1 && x == 2)
+							str += "-sinf(a)";
+						else if (y == 2 && x == 2)
+							str += "cosf(a)";
+						else
+							str += x == y ? "1" : "0";
+
+						str += (i != (width * height) - 1) ? ", " : "";
+					}
+				}
+				str += $"); }}\n";
+				str += $"\tstatic {Name} rotateY(float a) {{ return {Name}(";
+				for (int y = 0, i = 0; y < height; y++)
+				{
+					for (int x = 0; x < width; x++, i++)
+					{
+						if (y == 0 && x == 0)
+							str += "cosf(a)";
+						else if (y == 2 && x == 0)
+							str += "-sinf(a)";
+						else if (y == 0 && x == 2)
+							str += "sinf(a)";
+						else if (y == 2 && x == 2)
+							str += "cosf(a)";
+						else
+							str += x == y ? "1" : "0";
+
+						str += (i != (width * height) - 1) ? ", " : "";
+					}
+				}
+				str += $"); }}\n";
+				str += $"\tstatic {Name} rotateZ(float a) {{ return {Name}(";
+				for (int y = 0, i = 0; y < height; y++)
+				{
+					for (int x = 0; x < width; x++, i++)
+					{
+						if (y == 0 && x == 0)
+							str += "cosf(a)";
+						else if (y == 1 && x == 0)
+							str += "sinf(a)";
+						else if (y == 0 && x == 1)
+							str += "-sinf(a)";
+						else if (y == 1 && x == 1)
+							str += "cosf(a)";
+						else
+							str += x == y ? "1" : "0";
+
+						str += (i != (width * height) - 1) ? ", " : "";
+					}
+				}
+				str += $"); }}\n";
+				return str;
+			}
+		}
+
 
 		public string Functions
 		{
@@ -494,7 +599,9 @@ namespace mathgen
 
 				str += RowColFunctions;
 				str += IdentityFunction;
+				str += TransposeFunction;
 				str += TranslateFunction;
+				str += RotateFunctions;
 				return str;
 			}
 		}
